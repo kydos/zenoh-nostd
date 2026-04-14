@@ -55,6 +55,8 @@ where
     ) -> impl Iterator<Item = &'r mut DynCallback<'a, Self::Callback, Self::Future, Arg>>
     where
         DynCallback<'a, Self::Callback, Self::Future, Arg>: 'r;
+
+    fn iter_keys(&self) -> impl Iterator<Item = (u32, &'static keyexpr)> + '_;
 }
 
 pub struct FixedCapacityCallbacks<
@@ -192,6 +194,10 @@ impl<'a, Arg: ZArg + 'a, const CAPACITY: usize, Callback: Storage, Future: Stora
                 }
             })
     }
+
+    fn iter_keys(&self) -> impl Iterator<Item = (u32, &'static keyexpr)> + '_ {
+        self.keyexprs.iter().map(|(id, ke)| (*id, *ke))
+    }
 }
 
 #[cfg(feature = "alloc")]
@@ -319,6 +325,10 @@ impl<'a, Arg: ZArg + 'a, Callback: Storage, Future: Storage> ZCallbacks<'a, Arg>
                     None
                 }
             })
+    }
+
+    fn iter_keys(&self) -> impl Iterator<Item = (u32, &'static keyexpr)> + '_ {
+        self.keyexprs.iter().map(|(id, ke)| (*id, *ke))
     }
 }
 
