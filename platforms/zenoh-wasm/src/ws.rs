@@ -1,4 +1,5 @@
 //! Browser-native WebSocket link for WASM targets.
+#![cfg(target_arch = "wasm32")]
 //!
 //! Uses `web_sys::WebSocket` directly — no extra WebSocket crate required.
 //! Storing `ws: web_sys::WebSocket` as a separate field lets us call
