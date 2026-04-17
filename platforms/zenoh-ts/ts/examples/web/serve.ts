@@ -8,8 +8,17 @@
 // Custom port:
 //   PORT=9090 deno run --allow-net --allow-read --allow-env examples/web/serve.ts
 //
+// Public address (e.g. zenoh.corsaro.me):
+//   HOST=0.0.0.0 PORT=8000 deno run --allow-net --allow-read --allow-env examples/web/serve.ts
+//   Then point DNS for zenoh.corsaro.me to this machine and open the firewall on PORT.
+//   The page auto-detects window.location.hostname and defaults the router locator to
+//   ws/zenoh.corsaro.me:7447 — make sure zenohd is also listening on ws/0.0.0.0:7447.
+//
 
-const PORT = parseInt(Deno.env.get("PORT") ?? "8000");
+const PORT     = parseInt(Deno.env.get("PORT") ?? "8000");
+// Bind address: set HOST=0.0.0.0 to accept on all interfaces (default),
+// or HOST=zenoh.corsaro.me / a specific IP to restrict to one interface.
+const HOST     = Deno.env.get("HOST") ?? "0.0.0.0";
 // Serve from the ts/ root so that the relative import ../../pkg/ inside
 // index.html resolves correctly at http://localhost:<PORT>/pkg/…
 const ROOT = new URL("../../", import.meta.url).pathname;
@@ -54,11 +63,12 @@ async function handler(req: Request): Promise<Response> {
 Deno.serve(
     {
         port: PORT,
+        hostname: HOST,
         onListen({ hostname, port }) {
-            const host = hostname === "0.0.0.0" ? "localhost" : hostname;
+            const displayHost = hostname === "0.0.0.0" ? "localhost" : hostname;
             console.log(`Serving  ${ROOT}`);
-            console.log(`Open  →  http://${host}:${port}/examples/web/`);
-            console.log(`Router   ws/127.0.0.1:7447  must be reachable`);
+            console.log(`Open  →  http://${displayHost}:${port}/examples/web/`);
+            console.log(`Router   ws/${displayHost}:7447  must be reachable`);
         },
     },
     handler,
