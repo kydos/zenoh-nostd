@@ -1,8 +1,4 @@
 ts/node_modules/
 target/
-# Generated wasm-bindgen output — rebuild with `just build`
-ts/pkg/
 # Un-ignore all source .ts files suppressed by the root *.ts rule
 !**/*.ts
-# Re-ignore generated .ts files inside the pkg output directory
-ts/pkg/*.ts
