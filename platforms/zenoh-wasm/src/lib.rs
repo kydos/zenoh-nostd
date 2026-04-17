@@ -1,3 +1,9 @@
+// zenoh-wasm is a browser-only crate; everything inside requires web_sys which
+// is only available on wasm32.  Gate the whole crate so that a host `cargo
+// build` (without --target wasm32-unknown-unknown) compiles it as an empty
+// library instead of failing on the missing web_sys dependency.
+#![cfg(target_arch = "wasm32")]
+
 use std::net::SocketAddr;
 
 use zenoh_nostd::platform::*;
