@@ -7,15 +7,28 @@ export interface ChannelReceiver<T> {
     [Symbol.asyncIterator](): AsyncIterator<T>;
 }
 
+interface Waiter<T> {
+    resolve: (v: T | null) => void;
+    reject: (e: unknown) => void;
+}
+
 /**
  * A bounded FIFO channel that bridges WASM callbacks to async TypeScript iterators.
  *
  * Dropped (newest) on overflow — preserves oldest items like a classic FIFO queue.
+ *
+ * **Single-consumer.** Every `[Symbol.asyncIterator]()` call shares the same
+ * underlying queue, so concurrent iterators would steal items from one another.
+ * Drive a channel from a single `for await` loop (or a single `receive()` chain).
+ * Exiting a `for await` loop early (via `break`/`return`/`throw`) closes the
+ * channel through the iterator's `return()`, so the producer stops filling it.
  */
 export class FifoChannel<T> implements ChannelReceiver<T> {
     protected _queue: T[] = [];
-    protected _waiters: Array<(v: T | null) => void> = [];
+    protected _waiters: Array<Waiter<T>> = [];
     protected _closed = false;
+    protected _failed = false;
+    protected _error: unknown = undefined;
 
     constructor(readonly capacity: number = 256) {}
 
@@ -23,19 +36,25 @@ export class FifoChannel<T> implements ChannelReceiver<T> {
     push(item: T): void {
         if (this._closed) return;
         if (this._waiters.length > 0) {
-            this._waiters.shift()!(item);
+            this._waiters.shift()!.resolve(item);
         } else if (this._queue.length < this.capacity) {
             this._queue.push(item);
         }
         // else: drop newest (FIFO overflow policy)
     }
 
-    /** Receive the next item, waiting asynchronously if the channel is empty. */
+    /**
+     * Receive the next item, waiting asynchronously if the channel is empty.
+     *
+     * Resolves to `null` once the channel is closed and drained; rejects with
+     * the failure reason if the channel was failed via {@link fail}.
+     */
     async receive(): Promise<T | null> {
         if (this._queue.length > 0) return this._queue.shift()!;
+        if (this._failed) throw this._error;
         if (this._closed) return null;
-        return new Promise<T | null>((resolve) => {
-            this._waiters.push(resolve);
+        return new Promise<T | null>((resolve, reject) => {
+            this._waiters.push({ resolve, reject });
         });
     }
 
@@ -48,7 +67,21 @@ export class FifoChannel<T> implements ChannelReceiver<T> {
     close(): void {
         if (this._closed) return;
         this._closed = true;
-        for (const w of this._waiters) w(null);
+        for (const w of this._waiters) w.resolve(null);
+        this._waiters = [];
+    }
+
+    /**
+     * Fail the channel with `error`. Drains nothing: pending and future
+     * `receive()` calls reject with `error` instead of returning `null`, so a
+     * consumer can distinguish a transport failure from normal completion.
+     */
+    fail(error: unknown): void {
+        if (this._closed) return;
+        this._closed = true;
+        this._failed = true;
+        this._error = error;
+        for (const w of this._waiters) w.reject(error);
         this._waiters = [];
     }
 
@@ -65,7 +98,19 @@ export class FifoChannel<T> implements ChannelReceiver<T> {
                 if (value === null) return { done: true, value: undefined as unknown as T };
                 return { done: false, value };
             },
+            // Called when the consumer exits the loop early (break/return/throw),
+            // so the producer stops filling a channel nobody is reading.
+            async return(): Promise<IteratorResult<T>> {
+                self.close();
+                return { done: true, value: undefined as unknown as T };
+            },
         };
+    }
+
+    /** Closes the channel when used with `await using`. */
+    [Symbol.asyncDispose](): Promise<void> {
+        this.close();
+        return Promise.resolve();
     }
 }
 
@@ -76,7 +121,7 @@ export class RingChannel<T> extends FifoChannel<T> {
     override push(item: T): void {
         if (this._closed) return;
         if (this._waiters.length > 0) {
-            this._waiters.shift()!(item);
+            this._waiters.shift()!.resolve(item);
         } else {
             if (this._queue.length >= this.capacity) {
                 this._queue.shift(); // drop oldest

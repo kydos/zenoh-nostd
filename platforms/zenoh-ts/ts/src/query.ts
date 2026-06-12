@@ -54,9 +54,15 @@ export class Query {
         await this._inner.reply_err(bytes);
     }
 
-    /** Send a delete reply for this query. */
-    async replyDel(keyExpr: IntoKeyExpr): Promise<void> {
-        await this._inner.reply(keyExpr.toString(), new Uint8Array(0));
+    /**
+     * Send a delete reply for this query.
+     *
+     * Not yet implemented: the zenoh-nostd protocol layer has no delete (`Del`)
+     * push body, so this throws rather than sending an empty `Put` that a
+     * querier would misinterpret as a successful (empty-payload) reply.
+     */
+    async replyDel(_keyExpr: IntoKeyExpr): Promise<void> {
+        throw new Error("Query.replyDel() is not yet implemented in zenoh-nostd");
     }
 
     /**

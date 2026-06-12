@@ -39,10 +39,18 @@ export interface PublisherOptions {
 }
 
 export class Publisher {
+    private _undeclared = false;
+
     constructor(
         private readonly _handle: JsPublisher,
         private readonly _opts?: PublisherOptions,
     ) {}
+
+    private ensureDeclared(): void {
+        if (this._undeclared) {
+            throw new Error("Publisher is undeclared");
+        }
+    }
 
     keyExpr(): string {
         return this._handle.key_expr();
@@ -55,6 +63,7 @@ export class Publisher {
      * from the options this publisher was declared with.
      */
     async put(payload: IntoZBytes, opts?: { encoding?: Encoding; attachment?: IntoZBytes }): Promise<void> {
+        this.ensureDeclared();
         const bytes = ZBytes.from(payload).toBytes();
         const encId = opts?.encoding?.id ?? this._opts?.encoding?.id ?? 0;
         const attach = opts?.attachment ? ZBytes.from(opts.attachment).toBytes() : undefined;
@@ -71,11 +80,14 @@ export class Publisher {
 
     /** Send a delete notification via this publisher. */
     async delete(): Promise<void> {
+        this.ensureDeclared();
         await this._handle.delete();
     }
 
-    /** Undeclare this publisher. */
+    /** Undeclare this publisher. Idempotent. */
     async undeclare(): Promise<void> {
+        if (this._undeclared) return;
+        this._undeclared = true;
         await this._handle.undeclare();
     }
 
@@ -87,6 +99,8 @@ export class Publisher {
 // ── Subscriber ────────────────────────────────────────────────────────────────
 
 export class Subscriber {
+    private _undeclared = false;
+
     constructor(
         private readonly _handle: JsSubscriber,
         private readonly _channel: FifoChannel<Sample> | null,
@@ -100,7 +114,10 @@ export class Subscriber {
         return this._channel ?? undefined;
     }
 
+    /** Undeclare this subscriber. Idempotent. */
     async undeclare(): Promise<void> {
+        if (this._undeclared) return;
+        this._undeclared = true;
         this._channel?.close();
         await this._handle.undeclare();
     }
@@ -113,6 +130,8 @@ export class Subscriber {
 // ── Queryable ─────────────────────────────────────────────────────────────────
 
 export class Queryable {
+    private _undeclared = false;
+
     constructor(
         private readonly _handle: JsQueryable,
         private readonly _channel: FifoChannel<Query> | null,
@@ -126,7 +145,10 @@ export class Queryable {
         return this._channel ?? undefined;
     }
 
+    /** Undeclare this queryable. Idempotent. */
     async undeclare(): Promise<void> {
+        if (this._undeclared) return;
+        this._undeclared = true;
         this._channel?.close();
         await this._handle.undeclare();
     }
@@ -196,11 +218,19 @@ export interface QuerierGetOptions {
 }
 
 export class Querier {
+    private _undeclared = false;
+
     constructor(
         private readonly _handle: JsQuerier,
         private readonly _ke: string,
         private readonly _defaultTimeoutMs: number,
     ) {}
+
+    private ensureDeclared(): void {
+        if (this._undeclared) {
+            throw new Error("Querier is undeclared");
+        }
+    }
 
     keyExpr(): string {
         return this._ke;
@@ -209,10 +239,13 @@ export class Querier {
     /**
      * Issue a get via this querier.
      *
-     * - When `opts.handler` is provided: calls it for each reply, returns `undefined`.
-     * - When no handler: returns a `ChannelReceiver<Reply>` that closes after the timeout.
+     * - When `opts.handler` is provided: calls it for each reply and returns
+     *   `undefined` immediately (fire-and-forget).
+     * - When no handler: returns a `ChannelReceiver<Reply>` that closes after the
+     *   timeout, or whose iteration rejects on transport error.
      */
     async get(opts?: QuerierGetOptions): Promise<ChannelReceiver<Reply> | undefined> {
+        this.ensureDeclared();
         const timeoutMs = opts?.timeout ?? this._defaultTimeoutMs;
         const rawParams = opts?.parameters !== undefined
             ? opts.parameters.toString()
@@ -222,7 +255,8 @@ export class Querier {
             : undefined;
 
         if (typeof opts?.handler === "function") {
-            // Callback mode: fire handler for each reply, return undefined.
+            // Callback mode: fire-and-forget — returns before the query completes.
+            // A transport error has no return channel here, so it is logged.
             const handler = opts.handler;
             const wasmCb = (jsReply: WasmReply) => {
                 handler(Reply.fromWasm(jsReply));
@@ -237,7 +271,8 @@ export class Querier {
             return undefined;
         }
 
-        // Channel mode: return receiver.
+        // Channel mode: return receiver. Normal completion closes it; a transport
+        // error fails it so the consumer can tell the two apart.
         const channel = new FifoChannel<Reply>(256);
         const wasmCb = (jsReply: WasmReply) => {
             channel.push(Reply.fromWasm(jsReply));
@@ -248,11 +283,14 @@ export class Querier {
             payloadBytes ?? null,
             timeoutMs,
         );
-        done.then(() => channel.close()).catch(() => channel.close());
+        done.then(() => channel.close()).catch((e) => channel.fail(e));
         return channel;
     }
 
+    /** Undeclare this querier. Idempotent. */
     async undeclare(): Promise<void> {
+        if (this._undeclared) return;
+        this._undeclared = true;
         await this._handle.undeclare();
     }
 

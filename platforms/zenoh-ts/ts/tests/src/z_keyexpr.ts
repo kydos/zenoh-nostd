@@ -3,7 +3,7 @@
  * ke_intersects / ke_includes delegate to WASM; tested here via the TS wrapper.
  * The pure string operations (join, concat, toString) are tested without WASM.
  */
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals, assertThrows } from "jsr:@std/assert";
 import { KeyExpr } from "../../src/index.ts";
 
 // ── String operations (no WASM) ───────────────────────────────────────────────
@@ -32,4 +32,22 @@ Deno.test("KeyExpr: constructed from another KeyExpr", () => {
 Deno.test("KeyExpr.autocanonize is an identity for well-formed expressions", () => {
     const ke = KeyExpr.autocanonize("a/b/c");
     assertEquals(ke.toString(), "a/b/c");
+});
+
+// ── Validation (no WASM) ───────────────────────────────────────────────────────
+
+Deno.test("KeyExpr accepts well-formed wildcard expressions", () => {
+    for (const valid of ["a", "a/b/c", "a/*/b", "a/**", "a/**/b", "*", "**", "a/b$*", "a$*/b"]) {
+        new KeyExpr(valid); // must not throw
+    }
+});
+
+Deno.test("KeyExpr rejects malformed expressions", () => {
+    for (const bad of ["", "a/", "/a", "a//b", "a/*x", "a/x*", "a/?", "a/#", "a/x$y", "$*"]) {
+        assertThrows(() => new KeyExpr(bad), Error, "Invalid key expression");
+    }
+});
+
+Deno.test("KeyExpr.autocanonize rejects non-canonical '**' usage", () => {
+    assertThrows(() => KeyExpr.autocanonize("a/**/**"), Error, "Invalid key expression");
 });

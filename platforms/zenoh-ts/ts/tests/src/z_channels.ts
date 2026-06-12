@@ -86,3 +86,61 @@ Deno.test("RingChannel: continues working after overflow", () => {
     assertEquals(ch.tryReceive(), 9);
     assertStrictEquals(ch.tryReceive(), undefined);
 });
+
+Deno.test("FifoChannel: fail rejects a pending receive", async () => {
+    const ch = new FifoChannel<number>(4);
+    const pending = ch.receive();
+    ch.fail(new Error("boom"));
+    await pending.then(
+        () => {
+            throw new Error("receive should have rejected");
+        },
+        (e) => assertEquals((e as Error).message, "boom"),
+    );
+});
+
+Deno.test("FifoChannel: fail rejects future receives (distinct from close)", async () => {
+    const ch = new FifoChannel<number>(4);
+    ch.fail(new Error("dead"));
+    await ch.receive().then(
+        () => {
+            throw new Error("receive should have rejected");
+        },
+        (e) => assertEquals((e as Error).message, "dead"),
+    );
+});
+
+Deno.test("FifoChannel: buffered items drain before fail takes effect", async () => {
+    const ch = new FifoChannel<number>(4);
+    ch.push(1);
+    ch.fail(new Error("later"));
+    assertEquals(await ch.receive(), 1); // queued item still delivered
+    await ch.receive().then(
+        () => {
+            throw new Error("receive should have rejected");
+        },
+        (e) => assertEquals((e as Error).message, "later"),
+    );
+});
+
+Deno.test("FifoChannel: breaking out of for-await closes the channel", async () => {
+    const ch = new FifoChannel<number>(8);
+    ch.push(1);
+    ch.push(2);
+    const seen: number[] = [];
+    for await (const v of ch) {
+        seen.push(v);
+        break; // triggers iterator.return() → close()
+    }
+    assertEquals(seen, [1]);
+    assertEquals(ch.isClosed, true);
+});
+
+Deno.test("FifoChannel: await using disposes (closes) the channel", async () => {
+    let closed = false;
+    {
+        await using ch = new FifoChannel<number>(4);
+        closed = ch.isClosed;
+    }
+    assertEquals(closed, false); // open inside the scope
+});

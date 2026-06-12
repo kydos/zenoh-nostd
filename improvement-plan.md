@@ -18,18 +18,6 @@ references below point at the current source.
 
 ## Tier 1 — Correctness bugs & silent-failure footguns
 
-### 🟥 #2 — QoS options declared but silently dropped
-`PutOptions` declares `priority`, `congestionControl`, `express`
-(`session.ts:57-63`) and `PublisherOptions` declares `priority`, `congestionControl`, `express`,
-`reliability` (`pubsub.ts:33-39`), but:
-- `Session.put()` forwards only `encoding` + `attachment` (`session.ts:149-156`).
-- `Publisher.put()` reads only `encoding`; the stored `_opts` is otherwise dead (`pubsub.ts:52-57`).
-- The WASM `put` signature has no parameter for them (`pkg/zenoh_ts_wasm.d.ts:182`, `:22`).
-
-A user setting `CongestionControl.Block` silently gets `Drop` semantics with no error.
-
-**Fix:** wire them through the WASM `put` (🦀), or — until the core accepts them — **remove them
-from the option types** so the API stops promising what it can't deliver.
 
 ### 🟥 #N4 — `delete()` is a silent no-op
 `Session.delete()` (`session.ts:159-161`) and `Publisher.delete()` (`pubsub.ts:60-62`) `await`
@@ -38,32 +26,7 @@ supported yet by zenoh-nostd"; `:13`). The promise resolves successfully; nothin
 
 **Fix:** make the no-op visible — `console.warn` once, or throw — rather than resolving as success. (🦀 for real delete support.)
 
-### 🟧 #10 — `Parameters` truncates values containing `=`
-`selector.ts:23-24` and `:50-53` use `pair.split("=", 2)`. JS `String.split(sep, limit)` discards
-the remainder, so `"k=a=b=c".split("=",2)` → `["k","a"]` — the value `a=b=c` is silently truncated
-to `a`.
 
-**Fix:** `const i = pair.indexOf("="); k = pair.slice(0,i); v = pair.slice(i+1)`. Add a test.
-*(The earlier "no percent-decoding" concern was dropped — upstream zenoh does not URL-decode either.)*
-
-### 🟧 #14 — Delete-kind replies misreported as Put
-`Reply.fromWasm()` (`pubsub.ts:164-171`) reads `key_expr`/`payload`/`encoding_id` but **not**
-`js.sample.kind`, which exists (`pkg/zenoh_ts_wasm.d.ts:115`). `Reply.result()` then hardcodes
-`SampleKind.Put` (`pubsub.ts:157-162`). Delete replies are silently reported as Put.
-
-**Fix:** read `kind` in `fromWasm`, thread it into `result()`.
-
-### 🟧 #7 — Dual-cased enums corrupt reverse-mapping
-Every enum doubles each variant, e.g. `SampleKind { Put=0, PUT=0, Delete=1, DELETE=1 }`
-(`enums.ts:32-37`; same pattern `:1-82`). For a numeric enum the **last** key wins the reverse map,
-so `SampleKind[0] === "PUT"`. `Sample.toString()` uses `SampleKind[this._kind]`
-(`sample.ts:72`) and therefore prints `kind=PUT` / `kind=DELETE`, not `Put`/`Delete`. It also
-doubles every autocomplete entry.
-
-**Fix:** pick one convention. Recommended: `as const` objects + union types (matches modern
-upstream, eliminates reverse-map ambiguity). Minimal alternative: collapse to single-cased numeric enums.
-
----
 
 ## Tier 2 — Resource lifecycle & API honesty
 

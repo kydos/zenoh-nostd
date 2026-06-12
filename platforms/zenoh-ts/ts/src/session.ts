@@ -135,18 +135,29 @@ export class Session {
         return this._closed;
     }
 
+    private ensureOpen(): void {
+        if (this._closed) {
+            throw new Error("Session is closed");
+        }
+    }
+
     // ── Session info ──────────────────────────────────────────────────────────
 
+    /**
+     * Session information.
+     *
+     * Not yet implemented: the session's `ZenohId` is not propagated from the
+     * zenoh-nostd WASM core, so this throws rather than returning a placeholder.
+     */
     async info(): Promise<{ zid(): ZenohId }> {
-        return {
-            zid: () => ZenohId.fromString("wasm-zenoh-nostd"),
-        };
+        throw new Error("Session.info() is not yet implemented in zenoh-nostd");
     }
 
     // ── Put / Delete ──────────────────────────────────────────────────────────
 
     /** Publish data to `keyExpr`. */
     async put(keyExpr: IntoKeyExpr, payload: IntoZBytes, opts?: PutOptions): Promise<void> {
+        this.ensureOpen();
         const bytes = ZBytes.from(payload).toBytes();
         const encId = opts?.encoding?.id ?? 0;
         const attach = opts?.attachment
@@ -165,6 +176,7 @@ export class Session {
 
     /** Send a delete notification for `keyExpr`. */
     async delete(keyExpr: IntoKeyExpr, _opts?: PutOptions): Promise<void> {
+        this.ensureOpen();
         await this._wasm.delete(keyExpr.toString());
     }
 
@@ -172,6 +184,7 @@ export class Session {
 
     /** Declare a publisher on `keyExpr`. */
     async declarePublisher(keyExpr: IntoKeyExpr, opts?: PublisherOptions): Promise<Publisher> {
+        this.ensureOpen();
         const handle = await this._wasm.declare_publisher(keyExpr.toString());
         return new Publisher(handle, opts);
     }
@@ -189,6 +202,7 @@ export class Session {
         keyExpr: IntoKeyExpr,
         opts?: SubscriberOptions,
     ): Promise<Subscriber> {
+        this.ensureOpen();
         const ke = keyExpr.toString();
         let channel: FifoChannel<Sample> | null = null;
         let cbFn: ((s: Sample) => void) | null = null;
@@ -231,6 +245,7 @@ export class Session {
         keyExpr: IntoKeyExpr,
         opts?: QueryableOptions,
     ): Promise<Queryable> {
+        this.ensureOpen();
         const ke = keyExpr.toString();
         let channel: FifoChannel<Query> | null = null;
         let cbFn: ((q: Query) => void) | null = null;
@@ -268,6 +283,7 @@ export class Session {
         keyExpr: IntoKeyExpr,
         opts?: QuerierOptions,
     ): Promise<Querier> {
+        this.ensureOpen();
         const ke = keyExpr.toString();
         const timeoutMs = opts?.timeout ?? 30_000;
         const handle = this._wasm.declare_querier(ke, timeoutMs);
@@ -280,14 +296,17 @@ export class Session {
     /**
      * Issue a get query for `selector`.
      *
-     * - When `opts.handler` is provided: calls it for each reply and returns `undefined`.
+     * - When `opts.handler` is provided: calls it for each reply and returns
+     *   `undefined` immediately (fire-and-forget).
      * - When no handler: returns a `ChannelReceiver<Reply>` that closes when the
-     *   query is finalized by the remote queryable (or the timeout expires).
+     *   query is finalized by the remote queryable (or the timeout expires). A
+     *   transport error makes the receiver's `receive()`/iteration reject.
      */
     async get(
         selector: IntoKeyExpr | Selector,
         opts?: GetOptions,
     ): Promise<ChannelReceiver<Reply> | undefined> {
+        this.ensureOpen();
         const [ke, params] = extractKeParams(selector, opts?.parameters);
         const timeoutMs = opts?.timeout ?? 30_000;
         const payloadBytes = opts?.payload ? ZBytes.from(opts.payload).toBytes() : undefined;
@@ -296,7 +315,9 @@ export class Session {
         const consolidation = opts?.consolidation ?? undefined;
 
         if (typeof opts?.handler === "function") {
-            // Callback mode: fire-and-forget, return undefined.
+            // Callback mode: fire-and-forget — returns before the query completes
+            // so the caller can drive the matching queryable. A transport error
+            // has no return channel here, so it is logged.
             const handler = opts.handler;
             const wasmCb = (jsReply: unknown) => {
                 handler(Reply.fromWasm(jsReply as WasmReply));
@@ -314,7 +335,8 @@ export class Session {
             return undefined;
         }
 
-        // Channel mode: return receiver.
+        // Channel mode: return receiver. Normal completion closes it; a transport
+        // error fails it so the consumer can tell the two apart.
         const channel = new FifoChannel<Reply>(256);
         const wasmCb = (jsReply: unknown) => {
             channel.push(Reply.fromWasm(jsReply as WasmReply));
@@ -329,7 +351,7 @@ export class Session {
             target,
             consolidation,
         );
-        done.then(() => channel.close()).catch(() => channel.close());
+        done.then(() => channel.close()).catch((e) => channel.fail(e));
 
         return channel;
     }

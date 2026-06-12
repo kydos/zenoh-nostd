@@ -82,6 +82,13 @@ export class Encoding {
         this.schema = schema;
     }
 
+    /**
+     * Returns a copy of this encoding with `schema` set.
+     *
+     * Note: only the numeric encoding `id` is carried over the wire by the
+     * zenoh-nostd core — the schema string is not transmitted, so a peer
+     * receives the encoding without this suffix.
+     */
     withSchema(schema: string): Encoding {
         return new Encoding(this.id, schema);
     }
