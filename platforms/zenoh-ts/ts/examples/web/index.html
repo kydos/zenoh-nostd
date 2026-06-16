@@ -295,7 +295,7 @@
       <label for="locator">Router locator</label>
       <input id="locator" type="text" value="ws/127.0.0.1:7447" placeholder="ws/host:port">
     </div>
-    <button id="btn-connect">Connect</button>
+    <button id="btn-connect" disabled>Connect</button>
     <div class="status-indicator">
       <div class="dot" id="dot"></div>
       <span id="status-text">Disconnected</span>
@@ -761,6 +761,7 @@ document.getElementById('btn-get').addEventListener('click', async () => {
 // ─── Bootstrap ──────────────────────────────────────────────────────
 setConnected(false);
 await init();
+document.getElementById('btn-connect').disabled = false;
 log('info', 'WASM loaded. Enter a router locator and click Connect.');
 </script>
 </body>
