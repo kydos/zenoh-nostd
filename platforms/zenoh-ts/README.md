@@ -87,6 +87,13 @@ just router
 # equivalent: zenohd -l ws/127.0.0.1:10000
 ```
 
+`just router` runs `zenohd` from your `PATH`. If your `zenohd` lives elsewhere,
+point to it with the `ZENOHD` environment variable:
+
+```sh
+ZENOHD=/path/to/zenohd just router
+```
+
 Then run the integration tests:
 
 ```sh
@@ -146,6 +153,8 @@ Start the router on port 7447 (the browser WebSocket default):
 just router-ws          # from platforms/zenoh-ts/
 # or directly:
 zenohd -l ws/127.0.0.1:7447
+# use a custom zenohd binary:
+ZENOHD=/path/to/zenohd just router-ws
 ```
 
 Then serve the example.  The server **must** be launched from `ts/` so that

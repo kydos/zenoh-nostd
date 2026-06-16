@@ -7,6 +7,10 @@ wasm_out      := "ts/pkg"
 # The zenoh-ts crate is outside the main workspace, so it gets its own target dir.
 wasm_artifact := "target/" + wasm_target + "/release/zenoh_ts_wasm.wasm"
 
+# Path to the zenohd binary used by the router recipes.
+# Defaults to `zenohd` on PATH; override with: ZENOHD=/path/to/zenohd just router
+zenohd := env_var_or_default("ZENOHD", "zenohd")
+
 # ── Build ─────────────────────────────────────────────────────────────────────
 
 # Build WASM binary
@@ -63,7 +67,7 @@ test: test-pure test-integration
 
 # Start the Zenoh router for integration tests (port 10000 for upstream test compat)
 router:
-    /Users/kydos/kylab/eclipse-zenoh/target/release/zenohd -l ws/127.0.0.1:10000
+    {{ zenohd }} -l ws/127.0.0.1:10000
 
 # ── Examples ──────────────────────────────────────────────────────────────────
 
@@ -78,7 +82,7 @@ serve-web:
 
 # Start the Zenoh router with WebSocket on port 7447 (for the web example)
 router-ws:
-    /Users/kydos/kylab/eclipse-zenoh/target/release/zenohd -l ws/127.0.0.1:7447
+    {{ zenohd }} -l ws/127.0.0.1:7447
 
 # ── Dev helpers ───────────────────────────────────────────────────────────────
 
