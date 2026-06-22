@@ -9,7 +9,11 @@
 <p align="center">
   <code>async</code> • <code>bare-metal</code> • <code>no_std</code> • <code>zenoh</code>
 </p>
-<a href="https://cla-assistant.io/ZettaScaleLabs/zenoh-nostd"><img src="https://cla-assistant.io/readme/badge/ZettaScaleLabs/zenoh-nostd" alt="CLA assistant" /></a>
+<p align="center">
+  <a href="https://github.com/ZettaScaleLabs/zenoh-nostd/actions/workflows/ci.yml"><img src="https://github.com/ZettaScaleLabs/zenoh-nostd/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://codecov.io/gh/ZettaScaleLabs/zenoh-nostd"><img src="https://codecov.io/gh/ZettaScaleLabs/zenoh-nostd/graph/badge.svg" alt="Code coverage" /></a>
+  <a href="https://cla-assistant.io/ZettaScaleLabs/zenoh-nostd"><img src="https://cla-assistant.io/readme/badge/ZettaScaleLabs/zenoh-nostd" alt="CLA assistant" /></a>
+</p>
 
 ---
 
@@ -108,7 +112,7 @@ Set the `ENDPOINT=<endpoint>` environment variable to specify the endpoint (defa
 
 For `esp32s3`, you must also provide:
 
-* `WIFI_SSID` (default is `ZettaScale`).
+* `WIFI_SSID` (default is `WiFiPassword`).
 * `WIFI_PASSWORD` (no default, must be provided).
 
 See the ESP32 setup documentation for toolchain and target installation.

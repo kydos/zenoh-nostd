@@ -1,0 +1,25 @@
+# Codecov configuration for zenoh-nostd
+# Coverage is computed by the `coverage` job in .github/workflows/ci.yml via
+# cargo-llvm-cov and uploaded as lcov.info.
+
+coverage:
+  status:
+    # Report coverage changes, but do not fail PRs on coverage alone.
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
+
+# Exclude code that should not count towards coverage.
+ignore:
+  - "examples/**"
+  - "platforms/**"
+  - "**/tests/**"
+  - "crates/zenoh-derive/**"
+  - "build.rs"
+
+comment:
+  layout: "reach, diff, flags, files"
+  require_changes: false
