@@ -10,8 +10,8 @@
   <code>async</code> • <code>bare-metal</code> • <code>no_std</code> • <code>zenoh</code>
 </p>
 <p align="center">
-  <a href="https://github.com/ZettaScaleLabs/zenoh-nostd/actions/workflows/ci.yml"><img src="https://github.com/ZettaScaleLabs/zenoh-nostd/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://codecov.io/gh/ZettaScaleLabs/zenoh-nostd"><img src="https://codecov.io/gh/ZettaScaleLabs/zenoh-nostd/graph/badge.svg" alt="Code coverage" /></a>
+  <a href="https://github.com/eclipse-zenoh/zenoh-nostd/actions/workflows/ci.yml"><img src="https://github.com/eclipse-zenoh/zenoh-nostd/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://codecov.io/gh/eclipse-zenoh/zenoh-nostd"><img src="https://codecov.io/gh/eclipse-zenoh/zenoh-nostd/graph/badge.svg" alt="Code coverage" /></a>
   <a href="https://cla-assistant.io/ZettaScaleLabs/zenoh-nostd"><img src="https://cla-assistant.io/readme/badge/ZettaScaleLabs/zenoh-nostd" alt="CLA assistant" /></a>
 </p>
 
