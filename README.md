@@ -15,8 +15,6 @@
 
 ## 📦 Overview
 
-⚠️ This project is in early development.
-
 **zenoh-nostd** is a Rust-native, `async`, `#![no_std]`, `no_alloc` library that provides a **zero-overhead network abstraction layer** for ultra-constrained and bare-metal environments. In other terms you can run this *bare metal* on your favourite microcontroller.
 
 > ⚡ Built on the <a href="https://github.com/eclipse-zenoh/zenoh">Zenoh protocol</a>, but stripped to the bone for minimalism and raw performance.
@@ -41,7 +39,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-zenoh-nostd = { git = "https://github.com/ZettaScaleLabs/zenoh-nostd" }
+zenoh-nostd = { git = "https://github.com/eclipse-zenoh/zenoh-nostd" }
 ```
 
 > For embedded systems, ensure your crate uses `#![no_std]`:
@@ -81,10 +79,10 @@ async fn entry(spawner: embassy_executor::Spawner) -> zenoh::ZResult<()> {
 
 ---
 
-## ⚠️ Limitations
+## ⚠️ Current Limitations
 
-* No serial support yet. ([#11](https://github.com/ZettaScaleLabs/zenoh-nostd/issues/11))
-* `Interest` protocol not implemented yet. ([#46](https://github.com/ZettaScaleLabs/zenoh-nostd/issues/46))
+* No serial support yet. ([#9](https://github.com/eclipse-zenoh/zenoh-nostd/issues/9)
+* `Interest` protocol not implemented yet. ([#10](https://github.com/eclipse-zenoh/zenoh-nostd/issues/10)
 
 ---
 
@@ -200,16 +198,9 @@ zenoh-nostd/            # Git repository root
 │   ├── zenoh-embassy/  # Embassy platforms (no_std)
 │   ├── zenoh-std/      # Standard platforms (std)
 │   └── zenoh-wasm/     # WASM32 platforms (wasm)
+│   └── zenoh-ts/       # TypeScript API leveraging WASM build
 │
 ├── Cargo.toml          # Workspace + example package
 └── src/
     └── lib.rs          # Example lib.rs
 ```
-
----
-
-## 📚 Documentation
-
-The base project has been implemented in ([#6](https://github.com/ZettaScaleLabs/zenoh-nostd/pull/6))
-The structure and API have been reworked in ([#34](https://github.com/ZettaScaleLabs/zenoh-nostd/pull/24))
-The API has been reworked ([#52](https://github.com/ZettaScaleLabs/zenoh-nostd/pull/52))
