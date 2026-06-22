@@ -35,11 +35,44 @@ impl futures_util::Stream for BrowserWs {
     }
 }
 
+/// High-water mark (bytes) for the browser WebSocket's outbound buffer.
+///
+/// `WebSocket.send()` never blocks: it copies the payload into an internal
+/// queue (observable only via `bufferedAmount`) and returns immediately, so
+/// TCP flow control never propagates back to the caller. To restore
+/// backpressure we refuse new sends while `bufferedAmount` is above this mark,
+/// bounding the queue to roughly this size plus one message.
+const SEND_HIGH_WATER: f64 = 256.0 * 1024.0;
+
+/// Wake `waker` on the next event-loop turn via the global `setTimeout`.
+///
+/// Uses `js_sys::global()` + `Reflect` rather than `web_sys::Window` so it works
+/// uniformly in browser windows, web workers, and Deno (none of which share a
+/// single global type).
+fn schedule_wake(waker: core::task::Waker) {
+    let cb = Closure::once_into_js(move || waker.wake());
+    if let Ok(set_timeout) =
+        js_sys::Reflect::get(&js_sys::global(), &JsValue::from_str("setTimeout"))
+    {
+        if let Ok(func) = set_timeout.dyn_into::<js_sys::Function>() {
+            // setTimeout(cb, 1ms): re-poll soon so we notice the buffer draining.
+            let _ = func.call2(&JsValue::NULL, &cb, &JsValue::from_f64(1.0));
+        }
+    }
+}
+
 impl futures_util::Sink<Vec<u8>> for BrowserWs {
     type Error = ();
 
-    fn poll_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), ()>> {
-        Poll::Ready(Ok(()))
+    fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), ()>> {
+        // Backpressure: hold off accepting more data until the browser has
+        // drained its outbound buffer below the high-water mark.
+        if self.ws.buffered_amount() as f64 <= SEND_HIGH_WATER {
+            Poll::Ready(Ok(()))
+        } else {
+            schedule_wake(cx.waker().clone());
+            Poll::Pending
+        }
     }
 
     fn start_send(self: Pin<&mut Self>, item: Vec<u8>) -> Result<(), ()> {
@@ -47,6 +80,8 @@ impl futures_util::Sink<Vec<u8>> for BrowserWs {
     }
 
     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), ()>> {
+        // Nothing to flush: the browser auto-sends queued data. Backpressure is
+        // applied in `poll_ready` via `bufferedAmount`.
         Poll::Ready(Ok(()))
     }
 

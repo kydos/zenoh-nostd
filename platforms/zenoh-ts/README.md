@@ -135,12 +135,36 @@ just example z_get
 # Declare a queryable and reply to each query
 just example z_queryable
 
+# Demonstrate ZBytes payload conversions (no router needed)
+just example z_bytes
+
+# Throughput test: run the subscriber in one terminal, the publisher in another
+just example z_sub_thr -- -n 100000 -s 10
+just example z_pub_thr -- 8
+
 # Custom endpoint or key
 just example z_pub -- -e ws/192.168.1.10:7447 -k my/key -v "hello"
 ```
 
-All examples accept `-e <locator>`, `-k <key-expression>`, and (where applicable)
-`-v <value>` flags. Run any example without flags to use the defaults.
+Most examples accept `-e <locator>`, `-k <key-expression>`, and (where
+applicable) `-v <value>` flags. Run any example without flags to use the
+defaults. The throughput examples (`z_pub_thr`/`z_sub_thr`) publish/subscribe on
+a fixed `test/thr` key: `z_pub_thr` takes a positional `PAYLOAD_SIZE` plus
+`--express`/`-p <priority>`; `z_sub_thr` takes `-n <round-size>`/`-s <samples>`.
+
+#### Examples not yet ported
+
+These upstream `@eclipse-zenoh/zenoh-ts` examples are not ported because the
+zenoh-nostd binding does not yet expose the required API:
+
+- **`z_info`** — `Session.info()` is a stub. Needs core ZID propagation *and* a
+  new `SessionInfo` type surface (routers/peers ZIDs, transports, links, event
+  listeners) that does not exist in the binding.
+- **`z_liveliness`, `z_get_liveliness`, `z_sub_liveliness`** — the `Liveliness`
+  API is a stub; it needs core protocol support in zenoh-nostd first.
+- The typed/numeric serializers in upstream `z_bytes` (`zserialize`,
+  `ZBytesSerializer`, `NumberFormat`, typed arrays, `Map`) are omitted —
+  zenoh-nostd's `ZBytes` supports raw bytes, UTF-8 strings, and JSON only.
 
 ### Browser web demo
 
